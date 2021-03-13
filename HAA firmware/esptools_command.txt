@@ -1,0 +1,2 @@
+https://github.com/RavenSystem/haa/releases
+esptool.py.exe -p COM6 --baud 115200 write_flash -fs 4MB -fm dout -ff 40m 0x0 rboot.bin 0x1000 blank_config.bin 0x2000 haamain.bin
