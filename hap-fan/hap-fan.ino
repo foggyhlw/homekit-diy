@@ -7,7 +7,7 @@
 #define ENABLE_WEB_SERVER    //if we want to have built in web server /site
 #define ENABLE_OTA  //if Over the air update need  , ENABLE_WEB_SERVER must be defined first
 #include <Arduino.h>
-
+#include "button2.h"
 
 #ifdef ESP32
 #include <SPIFFS.h>
@@ -47,16 +47,14 @@ const int FAN_speed_low=16;
 const int FAN_speed_medium=5;
 const int FAN_speed_high=13;
 const int FAN_direction_gpio=4;
+const int FAN_manual_control=3;
 int channel =0;  // for esp32, we will use channel 0 for PWM
+
+Button2 button = Button2(FAN_manual_control);
 
 #ifdef ENABLE_WIFI_MANAGER
 #include <WiFiManager.h>        //https://github.com/tzapu/WiFiManager
 #endif
-
-
-
-
-
 
 const char* HOSTNAME="Homekit-FAN";
 const char* ssid     = "foggy_2G";
@@ -138,7 +136,9 @@ void setup() {
      }
 #endif
 
-
+  
+    button.setClickHandler(button_click);
+    button.setDoubleClickHandler(button_doubleClick);
     Serial.print("Free heap: ");
     Serial.println(system_get_free_heap_size());
 
@@ -389,3 +389,19 @@ void startwifimanager() {
    }
 }
 #endif
+
+
+void button_click(){
+  float current_speed = getFANSpeed();
+  if( current_speed >= 3.0){
+    set_FANSpeed(1.0);
+  }
+  else{
+    set_FANSpeed(current_speed+1);
+  }
+}
+
+void button_doubleClick(){
+  bool current_power = getFANState();
+  set_FANState(!current_power);
+}
