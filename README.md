@@ -1,2 +1,4 @@
 # homekit-diy
- homekit diy projects
+ 本repo内涉及到的改装项目纯属个人爱好，供爱好者参考共同学习
+ 涉及到强电部分需要有一定电工基础才可操作！
+ 
