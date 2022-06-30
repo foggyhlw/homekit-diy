@@ -1,0 +1,12 @@
+视频教程链接：
+Homekit视频教程：
+	待更新
+
+Homekit自动化视频教程参考：
+	https://www.bilibili.com/video/BV1mX4y137NG/
+
+ESPHOME教程：
+	https://www.bilibili.com/video/BV1qz4y1X7N9?share_source=copy_web
+
+Tasmota教程：
+	https://www.bilibili.com/video/BV1E54y1S7ug/?vd_source=2fccaa120c9f71b0d32b2e9cbf04787b
