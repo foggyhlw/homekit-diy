@@ -29,7 +29,7 @@ homekit_characteristic_t light_sensor_name = HOMEKIT_CHARACTERISTIC_(NAME, "Ligh
 homekit_accessory_t *accessories[] = {
     HOMEKIT_ACCESSORY(.id=1, .category=homekit_accessory_category_lightbulb, .services=(homekit_service_t*[]) {
         HOMEKIT_SERVICE(ACCESSORY_INFORMATION, .characteristics=(homekit_characteristic_t*[]) {
-            HOMEKIT_CHARACTERISTIC(NAME, "Philips Lamp"),
+            HOMEKIT_CHARACTERISTIC(NAME, "Homekit Lamp"),
             HOMEKIT_CHARACTERISTIC(MANUFACTURER, "Arduino HomeKit"),
             HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, "0123456"),
             HOMEKIT_CHARACTERISTIC(MODEL, "ESP8266/ESP32"),
