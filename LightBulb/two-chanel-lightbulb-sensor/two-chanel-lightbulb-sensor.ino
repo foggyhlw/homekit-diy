@@ -58,10 +58,12 @@ void setup() {
   button.begin(INPUT_BUTTON_PIN);
   button.setLongClickTime(500);  // set longclick time to 500ms 
 	Serial.begin(115200);
-	wifi_connect(); // in wifi_info.h
   pinMode(MAIN_LED_PIN, OUTPUT);
   pinMode(AMBIENT_LED_PIN, OUTPUT);
+  digitalWrite(MAIN_LED_PIN, LOW);
+  digitalWrite(AMBIENT_LED_PIN, LOW);
   pinMode(MOTION_PIN, INPUT);
+	wifi_connect(); // in wifi_info.h
   button.setClickHandler(single_click_handler);
   button.setLongClickHandler(longClick_handler);
 	my_homekit_setup();

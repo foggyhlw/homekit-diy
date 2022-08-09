@@ -14,9 +14,10 @@
 #include <WiFi.h>
 #endif
 
+
 const char *ssid = "your_ssid";
 const char *password = "your_password";
-
+int i = 0;
 void wifi_connect() {
 	WiFi.persistent(false);
 	WiFi.mode(WIFI_STA);
@@ -24,8 +25,13 @@ void wifi_connect() {
 	WiFi.begin(ssid, password);
 	Serial.println("WiFi connecting...");
 	while (!WiFi.isConnected()) {
+		i++;
 		delay(100);
 		Serial.print(".");
+		if(i>=120){
+			Serial.print("wifi error!");
+			break;
+		}
 	}
 	Serial.print("\n");
 	Serial.printf("WiFi connected, IP: %s\n", WiFi.localIP().toString().c_str());
