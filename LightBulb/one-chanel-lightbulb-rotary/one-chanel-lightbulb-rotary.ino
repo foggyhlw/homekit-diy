@@ -18,10 +18,10 @@
 
 #include <Arduino.h>
 #include <arduino_homekit_server.h>
-#include "wifi_info.h"
 #include "Button2.h"
 #include "ESPRotary.h"
 #include <EEPROM.h>
+#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 
 #define LOG_D(fmt, ...)   printf_P(PSTR(fmt "\n") , ##__VA_ARGS__);
 #define MAP_100_2_255(val) map(val,0,100,0,255)
@@ -29,35 +29,86 @@
 #define INPUT_BUTTON_PIN 14   //D5
 #define ROTARY_PIN1	 12  //D6
 #define ROTARY_PIN2	13  //D7
-#define CLICKS_PER_STEP 4
+#define CLICKS_PER_STEP 3
+#define RESET_HK_PERIOD 10000
+#define WIFI_CHECK_PERIOD 10000
 
-int brightness_levels[] = {33,66,100};
-int brightness_level_num = sizeof(brightness_levels)/sizeof(int);
-int brightness_level_index = 1;
+#define RESET_HK_CLICK 4   // used to reset homekit pairing information if button is clicked 4times after startup within 10s
+
+int reset_click_number = 0;
+int wifi_reconnect_count = 0;
+unsigned long time_now = 0;
+unsigned long time_now1 = 0;
+bool first_start_loop = true;
 bool is_on = false;
-float current_brightness =  brightness_levels[brightness_level_index];
 
-// float current_sat = 0.0;
-// float current_hue = 0.0;
-// int rgb_colors[3];
+float current_brightness =  50;
+
+WiFiManager wm;
+
 Button2 button;
 ESPRotary rotary = ESPRotary(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP);
 
 void setup() {
   rotary.setRightRotationHandler(RightRotationHandler);
-  rotray.setLeftRotationHandler(LeftRotationHandler);
+  rotary.setLeftRotationHandler(LeftRotationHandler);
   button.begin(INPUT_BUTTON_PIN);
   button.setLongClickTime(500);  // set longclick time to 500ms 
 	Serial.begin(115200);
-	wifi_connect(); // in wifi_info.h
+	// wifi_connect(); // in wifi_info.h
   pinMode(MAIN_LED_PIN, OUTPUT);
   button.setClickHandler(single_click_handler);
   button.setLongClickHandler(long_click_handler);
+  WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP 
+  // wm.resetSettings();
+  wm.setConfigPortalBlocking(false);
+  wm.setConfigPortalTimeout(60);
+  if(wm.autoConnect("AutoConnectAP")){
+        Serial.println("connected...yeey :)");
+    }
+    else {
+        Serial.println("Configportal running");
+    }
+
 	my_homekit_setup();
 }
 
 void loop() {
-	my_homekit_loop();
+  if(first_start_loop){
+    if(millis() > time_now + RESET_HK_PERIOD){
+      first_start_loop = false;
+      time_now = millis();
+      if(reset_click_number >= 4){
+        analogWrite(MAIN_LED_PIN,0);
+        delay(1000);
+        analogWrite(MAIN_LED_PIN,100);
+        delay(1000);
+        analogWrite(MAIN_LED_PIN,0);
+        homekit_storage_reset();
+        ESP.restart();
+      }
+    }
+  }
+  if(millis() > time_now1 + WIFI_CHECK_PERIOD){
+    time_now1 = millis();
+    if(WiFi.isConnected()){
+      wifi_reconnect_count = 0;
+    }
+    else{
+      wifi_reconnect_count++;
+      Serial.print("Wifi connection is lost!\n");
+    }
+    
+  }
+  if(wifi_reconnect_count >= 60){
+    Serial.print("No WiFi, try restart!\n");
+    ESP.restart();
+  }
+  wm.process();
+  // if(WiFi.isConnected()){
+  my_homekit_loop();
+  // }
+  rotary.loop();
   button.loop();
 	delay(10);
 }
@@ -71,31 +122,34 @@ void loop() {
 extern "C" homekit_server_config_t accessory_config;
 extern "C" homekit_characteristic_t cha_on;
 extern "C" homekit_characteristic_t cha_bright;
-// extern "C" homekit_characteristic_t cha_sat;
-// extern "C" homekit_characteristic_t cha_hue;
+extern "C" homekit_characteristic_t name;
 
 static uint32_t next_heap_millis = 0;
 
 void my_homekit_setup() {
+uint8_t mac[WL_MAC_ADDR_LENGTH];
+	WiFi.macAddress(mac);
+	int name_len = snprintf(NULL, 0, "%s_%02X%02X%02X",
+			name.value.string_value, mac[3], mac[4], mac[5]);
+	char *name_value = (char*) malloc(name_len + 1);
+	snprintf(name_value, name_len + 1, "%s_%02X%02X%02X",
+			name.value.string_value, mac[3], mac[4], mac[5]);
+	name.value = HOMEKIT_STRING_CPP(name_value);
 
   cha_on.setter = set_on;
   cha_bright.setter = set_bright;
-  // cha_sat.setter = set_sat;
-  // cha_hue.setter = set_hue;
-  
 	arduino_homekit_setup(&accessory_config);
 }
 
 void my_homekit_loop() {
 	arduino_homekit_loop();
-	const uint32_t t = millis();
-	if (t > next_heap_millis) {
-		// show heap info every 5 seconds
-		next_heap_millis = t + 5 * 1000;
-		LOG_D("Free heap: %d, HomeKit clients: %d",
-				ESP.getFreeHeap(), arduino_homekit_connected_clients_count());
-
-	}
+	// const uint32_t t = millis();
+	// if (t > next_heap_millis) {
+	// 	// show heap info every 5 seconds
+	// 	next_heap_millis = t + 5 * 1000;
+	// 	LOG_D("Free heap: %d, HomeKit clients: %d",
+	// 			ESP.getFreeHeap(), arduino_homekit_connected_clients_count());
+	// }
 }
 
 void set_on(const homekit_value_t v) {
@@ -134,38 +188,27 @@ void updateBrightness(){
 }
 
 void single_click_handler(Button2& btn){
+  Serial.print("click!\n");
+  reset_click_number++;
   if(is_on){     // turn off when light is on
     analogWrite(MAIN_LED_PIN, 0);
     is_on = false;
   }
   else if(!is_on){  // turn on when light is off and set to last brightness
     is_on = true;
-    current_brightness = ;
   }
   cha_on.value.bool_value = is_on;
   homekit_characteristic_notify(&cha_on, cha_on.value);
   updateBrightness();
-
-
 }
 
 void long_click_handler(Button2& btn){
-  if(is_on){     // turn off when light is on
-    analogWrite(MAIN_LED_PIN, 0);
-    is_on = false;
-  }
-  else if(!is_on){  // turn on when light is off and set to last brightness
-    is_on = true;
-    current_brightness = brightness_levels[brightness_level_index];
-  }
-  cha_on.value.bool_value = is_on;
-  homekit_characteristic_notify(&cha_on, cha_on.value);
-  updateBrightness();
+  Serial.print("long click! \n");
 }
 
 
 void RightRotationHandler(ESPRotary& r) {
-//   Serial.println(r.getPosition());
+  Serial.println(r.getPosition());
   if(current_brightness<100){
     current_brightness += 10;
   }
@@ -178,7 +221,7 @@ void RightRotationHandler(ESPRotary& r) {
 }
 
 void LeftRotationHandler(ESPRotary& r) {
-//   Serial.println(r.getPosition());
+  Serial.println(r.getPosition());
   if(current_brightness>10){
     current_brightness -= 10;
   }
