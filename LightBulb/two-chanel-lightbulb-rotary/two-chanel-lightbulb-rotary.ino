@@ -25,12 +25,12 @@
 #include <FadeLed.h>
 
 #define LOG_D(fmt, ...)   printf_P(PSTR(fmt "\n") , ##__VA_ARGS__);
-#define MAP_100_2_255(val) map(val,0,100,0,55)
-#define MAIN_LED_PIN 4
-#define AMBIENT_LED_PIN 2
-#define INPUT_BUTTON_PIN 13
+#define MAP_100_2_55(val) map(val,0,100,0,55)   //Fadeled library use 10bit resolution while arduino is only 8bit
+#define MAIN_LED_PIN 4  //D2
+#define AMBIENT_LED_PIN 2  //D4
+#define INPUT_BUTTON_PIN 13  //D7
 #define ROTARY_PIN2	 12  //D6
-#define ROTARY_PIN1	14  //D7
+#define ROTARY_PIN1	14  //D5
 #define CLICKS_PER_STEP 4
 #define RESET_HK_PERIOD 10000
 #define WIFI_CHECK_PERIOD 10000
@@ -50,11 +50,9 @@ volatile bool press_rotation_flag = false;
 
 bool chanel_one_is_on = false;
 bool chanel_two_is_on = false;
-float chanel_one_current_brightness =  00;
-float chanel_two_current_brightness =  00;
+float chanel_one_current_brightness =  50;
+float chanel_two_current_brightness =  30;
 
-bool chanel_one_changing_flag = false;
-bool chanel_two_changing_flag = false;
 // float current_sat = 0.0;
 // float current_hue = 0.0;
 // int rgb_colors[3];
@@ -88,7 +86,7 @@ void setup() {
 	Serial.begin(115200);
 	// wifi_connect(); // in wifi_info.h
   mainled.setTime(1000,true);
-  ambled.setTime(2000);
+  ambled.setTime(1500,true);
   mainled.setInterval(10);
   // mainled.off();
   // ambled.off();
@@ -143,24 +141,6 @@ void loop() {
     ESP.restart();
   }
   FadeLed::update();
-  // if(mainled.done()){
-  //   if(chanel_one_changing_flag == true){
-  //     chanel_one_cha_bright.value.int_value = chanel_one_current_brightness; //sync the value
-  //     homekit_characteristic_notify(&chanel_one_cha_bright, chanel_one_cha_bright.value);
-  //     chanel_one_changing_flag =false;
-  //   }
-  // }
-  // if(ambled.done()){
-  //   if(chanel_two_changing_flag == true){
-  //     chanel_two_cha_bright.value.int_value = chanel_two_current_brightness; //sync the value
-  //     homekit_characteristic_notify(&chanel_two_cha_bright, chanel_two_cha_bright.value);
-  //     chanel_two_changing_flag = false;
-  //   }
-  // }
-
-  // if(WiFi.isConnected()){
-
-  // }
   if(millis() > time_now2 + 10){
     wm.process();
     my_homekit_loop();
@@ -256,9 +236,9 @@ void chanel_two_set_bright(const homekit_value_t v) {
 
 void chanel_one_updateBrightness(){
   if(chanel_one_is_on){
-    // analogWrite(MAIN_LED_PIN, MAP_100_2_255(chanel_one_current_brightness));
+    // analogWrite(MAIN_LED_PIN, MAP_100_2_55(chanel_one_current_brightness));
     // mainled.set(chanel_one_current_brightness);
-    mainled.set(MAP_100_2_255(chanel_one_current_brightness));
+    mainled.set(MAP_100_2_55(chanel_one_current_brightness));
 
   }
   else if(!chanel_one_is_on){
@@ -269,9 +249,9 @@ void chanel_one_updateBrightness(){
 
 void chanel_two_updateBrightness(){
   if(chanel_two_is_on){
-    // analogWrite(AMBIENT_LED_PIN, MAP_100_2_255(chanel_two_current_brightness));
+    // analogWrite(AMBIENT_LED_PIN, MAP_100_2_55(chanel_two_current_brightness));
     // ambled.set(chanel_two_current_brightness);
-    ambled.set(MAP_100_2_255(chanel_two_current_brightness));
+    ambled.set(MAP_100_2_55(chanel_two_current_brightness));
   }
   else if(!chanel_two_is_on){
     // analogWrite(AMBIENT_LED_PIN, 0);
@@ -323,7 +303,13 @@ void longClick_handler(Button2& btn){
 
 
 void RightRotationHandler(ESPRotary& r) {
-  if(button.isPressed()){   
+  if(button.isPressed()){
+    if(!chanel_two_is_on){  // turn on when light is off and set to last brightness
+      chanel_two_is_on = true;
+      // chanel_two_current_brightness = brightness_levels[brightness_level_index];
+    }
+    chanel_two_cha_on.value.bool_value = chanel_two_is_on;
+    homekit_characteristic_notify(&chanel_two_cha_on, chanel_two_cha_on.value);
     press_rotation_flag = true;
     // Serial.println(press_rotation_flag);
     if(chanel_two_current_brightness<100){
@@ -332,12 +318,17 @@ void RightRotationHandler(ESPRotary& r) {
     else{
       chanel_two_current_brightness = 100;
     }
-    chanel_two_changing_flag = true;
     chanel_two_cha_bright.value.int_value = chanel_two_current_brightness; //sync the value
     homekit_characteristic_notify(&chanel_two_cha_bright, chanel_two_cha_bright.value);
     chanel_two_updateBrightness();
   }
   else{   
+    if(!chanel_one_is_on){  // turn on when light is off and set to last brightness
+      chanel_one_is_on = true;
+    }
+    chanel_one_cha_on.value.bool_value = chanel_one_is_on;
+    homekit_characteristic_notify(&chanel_one_cha_on, chanel_one_cha_on.value);
+    // chanel_one_updateBrightness();
     // Serial.println(r.getPosition());
     if(chanel_one_current_brightness<100){
       chanel_one_current_brightness += 10;
@@ -345,7 +336,6 @@ void RightRotationHandler(ESPRotary& r) {
     else{
       chanel_one_current_brightness = 100;
     }
-    chanel_one_changing_flag = true;
     chanel_one_cha_bright.value.int_value = chanel_one_current_brightness; //sync the value
     homekit_characteristic_notify(&chanel_one_cha_bright, chanel_one_cha_bright.value);
     chanel_one_updateBrightness();
@@ -353,7 +343,13 @@ void RightRotationHandler(ESPRotary& r) {
 }
 
 void LeftRotationHandler(ESPRotary& r) {
-  if(button.isPressed()){   
+  if(button.isPressed()){
+    if(!chanel_two_is_on){  // turn on when light is off and set to last brightness
+      chanel_two_is_on = true;
+      // chanel_two_current_brightness = brightness_levels[brightness_level_index];
+    }
+    chanel_two_cha_on.value.bool_value = chanel_two_is_on;
+    homekit_characteristic_notify(&chanel_two_cha_on, chanel_two_cha_on.value);
     press_rotation_flag = true;
     // Serial.println(r.getPosition());
    if(chanel_two_current_brightness>10){
@@ -368,6 +364,11 @@ void LeftRotationHandler(ESPRotary& r) {
   }
   else{   
     // Serial.println(r.getPosition());
+    if(!chanel_one_is_on){  // turn on when light is off and set to last brightness
+      chanel_one_is_on = true;
+    }
+    chanel_one_cha_on.value.bool_value = chanel_one_is_on;
+    homekit_characteristic_notify(&chanel_one_cha_on, chanel_one_cha_on.value);
     if(chanel_one_current_brightness>10){
       chanel_one_current_brightness -= 10;
       }
