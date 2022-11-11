@@ -246,6 +246,9 @@ void longClick_handler(Button2& btn){
 
 void update_brightness(){
   lux = lightMeter.readLightLevel();
+  if (lux == 0.0){
+    lux = 0.0001;
+  }
   light_sensor.value.float_value = lux;
   homekit_characteristic_notify(&light_sensor, light_sensor.value);
 }
