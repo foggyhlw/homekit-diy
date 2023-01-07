@@ -19,6 +19,10 @@
 #include <Arduino.h>
 #include <arduino_homekit_server.h>
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
+#include <WS2812FX.h>
+
+#define LED_COUNT 1
+#define LED_PIN 14
 
 #define LOG_D(fmt, ...)   printf_P(PSTR(fmt "\n") , ##__VA_ARGS__);
 #define MAP_100_2_55(val) map(val,0,100,0,55)   //Fadeled library use 10bit resolution while arduino is only 8bit
@@ -44,6 +48,7 @@ uint8_t occupancy_detected = 0;
 bool light_active = false;
 float lux = 0.01 ;   // min 0.0001 max 100000
 WiFiManager wm;
+WS2812FX ws2812fx = WS2812FX(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 //==============================
 // HomeKit setup and loop
 //==============================
@@ -54,13 +59,28 @@ extern "C" homekit_characteristic_t cha_occupancy;
 extern "C" homekit_characteristic_t cha_light;
 extern "C" homekit_characteristic_t device_name;
 extern "C" homekit_characteristic_t cha_light_active;
+extern "C" homekit_characteristic_t cha_switch_on;
 static uint32_t next_heap_millis = 0;
+
+//Called when the switch value is changed by iOS Home APP
+void cha_switch_on_setter(const homekit_value_t value) {
+  bool on = value.bool_value;
+  cha_switch_on.value.bool_value = on;  //sync the value
+  LOG_D("Switch: %s", on ? "ON" : "OFF");
+  if(on == true){
+    ws2812fx.setBrightness(100);
+  }
+  else{
+    ws2812fx.setBrightness(0);
+  }
+}
 
 
 void setup() {
 	Serial.begin(115200);
   Serial.print(F("\nLD2410 radar sensor initialising: "));
   pinMode(LD2410_DOUT_PIN, INPUT);
+  setup_ws2812();
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP 
   // wm.resetSettings();
   wm.setConfigPortalBlocking(false);
@@ -115,11 +135,18 @@ void loop() {
     wm.process();
     my_homekit_loop();
     time_now2 = millis();
+    ws2812fx.service();
   }
 	// delay(10);
 }
 
-
+void setup_ws2812() {
+  ws2812fx.init();
+  ws2812fx.setBrightness(100);
+  ws2812fx.setSpeed(200);
+  ws2812fx.setMode(FX_MODE_RAINBOW_CYCLE);
+  ws2812fx.start();
+}
 
 void my_homekit_setup() {
   uint8_t mac[WL_MAC_ADDR_LENGTH];
@@ -130,7 +157,8 @@ void my_homekit_setup() {
 	snprintf(name_value, name_len + 1, "%s_%02X%02X%02X",
 			device_name.value.string_value, mac[3], mac[4], mac[5]);
 	device_name.value = HOMEKIT_STRING_CPP(name_value);
-
+ // setter
+  cha_switch_on.setter = cha_switch_on_setter;
 	arduino_homekit_setup(&accessory_config);
 }
 
@@ -149,9 +177,11 @@ void my_homekit_loop() {
 void update_motion(){
   if(digitalRead(LD2410_DOUT_PIN) == HIGH){
     occupancy_detected = 1;
+    ws2812fx.setColor(255,0,0);
   }
   else{
     occupancy_detected = 0;
+    ws2812fx.setColor(0,255,0);
   }
   cha_occupancy.value.uint8_value = occupancy_detected;
   homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
@@ -165,4 +195,3 @@ void update_light(){
   cha_light_active.value.bool_value = light_active;
   homekit_characteristic_notify(&cha_light_active, cha_light_active.value);
 }
-

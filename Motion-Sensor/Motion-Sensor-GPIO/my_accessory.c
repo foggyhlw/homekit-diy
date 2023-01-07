@@ -28,6 +28,12 @@ homekit_characteristic_t cha_light_active = HOMEKIT_CHARACTERISTIC_(STATUS_ACTIV
 
 homekit_characteristic_t device_name = HOMEKIT_CHARACTERISTIC_(NAME, "Motion Sensor");
 
+// format: bool; HAP section 9.70; write the .setter function to get the switch-event sent from iOS Home APP.
+homekit_characteristic_t cha_switch_on = HOMEKIT_CHARACTERISTIC_(ON, false);
+
+// format: string; HAP section 9.62; max length 64
+homekit_characteristic_t cha_switch_name = HOMEKIT_CHARACTERISTIC_(NAME, "led");
+
 // homekit_characteristic_t cha_sat = HOMEKIT_CHARACTERISTIC_(SATURATION, (float) 0);
 // homekit_characteristic_t cha_hue = HOMEKIT_CHARACTERISTIC_(HUE, (float) 180);
 
@@ -42,23 +48,22 @@ homekit_accessory_t *accessories[] = {
             HOMEKIT_CHARACTERISTIC(IDENTIFY, my_accessory_identify),
             NULL
         }),
-        // HOMEKIT_SERVICE(MOTION_SENSOR, .primary=true, .characteristics=(homekit_characteristic_t*[]) {
-		// 	HOMEKIT_CHARACTERISTIC(NAME, "Motion"),
-		// 	&cha_motion,
-        //     &cha_motion_active,
-		// 	NULL
-		// }),
         HOMEKIT_SERVICE(OCCUPANCY_SENSOR, .primary=true, .characteristics=(homekit_characteristic_t*[]) {
 			HOMEKIT_CHARACTERISTIC(NAME, "Occupancy"),
 			&cha_occupancy,
 			NULL
 		}),
-        HOMEKIT_SERVICE(LIGHT_SENSOR, .primary=true, .characteristics=(homekit_characteristic_t*[]) {
+        HOMEKIT_SERVICE(LIGHT_SENSOR, .primary=false, .characteristics=(homekit_characteristic_t*[]) {
 			HOMEKIT_CHARACTERISTIC(NAME, "Light"),
 			&cha_light,
             &cha_light_active,
 			NULL
 		}),
+      HOMEKIT_SERVICE(SWITCH, .primary=false, .characteristics=(homekit_characteristic_t*[]){
+      &cha_switch_on,
+      &cha_switch_name,
+      NULL
+    }),
         NULL
     }),
     NULL
