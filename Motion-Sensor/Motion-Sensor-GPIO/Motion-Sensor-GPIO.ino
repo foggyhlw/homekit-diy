@@ -20,6 +20,8 @@
 #include <arduino_homekit_server.h>
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <WS2812FX.h>
+#include <BH1750.h>
+#include <Wire.h>
 
 #define LED_COUNT 1
 #define LED_PIN 14
@@ -42,13 +44,14 @@ unsigned long time_now2 = 0;
 unsigned long time_now3 = 0;
 bool first_start_loop = true;
 volatile bool press_rotation_flag = false;   
-
+uint8_t last_motion_stat = 0;
 uint8_t occupancy_detected = 0;
 // bool motion_detected = false;
-bool light_active = false;
+bool light_active = true;
 float lux = 0.01 ;   // min 0.0001 max 100000
 WiFiManager wm;
 WS2812FX ws2812fx = WS2812FX(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+BH1750 lightMeter;
 //==============================
 // HomeKit setup and loop
 //==============================
@@ -68,7 +71,7 @@ void cha_switch_on_setter(const homekit_value_t value) {
   cha_switch_on.value.bool_value = on;  //sync the value
   LOG_D("Switch: %s", on ? "ON" : "OFF");
   if(on == true){
-    ws2812fx.setBrightness(100);
+    ws2812fx.setBrightness(50);
   }
   else{
     ws2812fx.setBrightness(0);
@@ -81,6 +84,8 @@ void setup() {
   Serial.print(F("\nLD2410 radar sensor initialising: "));
   pinMode(LD2410_DOUT_PIN, INPUT);
   setup_ws2812();
+  Wire.begin();  //scl sda
+  lightMeter.begin();
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP 
   // wm.resetSettings();
   wm.setConfigPortalBlocking(false);
@@ -91,6 +96,12 @@ void setup() {
   else {
         Serial.println("Configportal running");
     }
+
+  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
+    Serial.println(F("BH1750 Advanced begin"));
+  } else {
+    Serial.println(F("Error initialising BH1750"));
+  }
 	my_homekit_setup();
 }
 
@@ -128,23 +139,21 @@ void loop() {
   }
   if(millis() > time_now3 + UPDATE_PERIOD){
     time_now3 = millis();
-    update_motion();
     update_light();
-  }
+  }  
   if(millis() > time_now2 + 10){
     wm.process();
     my_homekit_loop();
     time_now2 = millis();
     ws2812fx.service();
+    motion_loop();
   }
 	// delay(10);
 }
 
 void setup_ws2812() {
   ws2812fx.init();
-  ws2812fx.setBrightness(100);
-  ws2812fx.setSpeed(200);
-  ws2812fx.setMode(FX_MODE_RAINBOW_CYCLE);
+  ws2812fx.setBrightness(0);    
   ws2812fx.start();
 }
 
@@ -170,28 +179,49 @@ void my_homekit_loop() {
 		next_heap_millis = t + 5 * 1000;
 		LOG_D("Free heap: %d, HomeKit clients: %d",
 				ESP.getFreeHeap(), arduino_homekit_connected_clients_count());
-
 	}
 }
 
-void update_motion(){
-  if(digitalRead(LD2410_DOUT_PIN) == HIGH){
-    occupancy_detected = 1;
-    ws2812fx.setColor(255,0,0);
+void motion_loop(){
+  uint8_t motion_stat = digitalRead(LD2410_DOUT_PIN);
+  if(motion_stat != last_motion_stat){
+    last_motion_stat = motion_stat;
+    if(motion_stat == HIGH){
+      ws2812fx.setColor(255,0,0);
+    }
+    if(motion_stat == LOW){
+      ws2812fx.setColor(0,255,0);
+    }
+    occupancy_detected = motion_stat;
+    cha_occupancy.value.uint8_value = occupancy_detected;
+    homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
   }
-  else{
-    occupancy_detected = 0;
-    ws2812fx.setColor(0,255,0);
-  }
-  cha_occupancy.value.uint8_value = occupancy_detected;
-  homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
 }
+// void update_motion(){
+//   if(digitalRead(LD2410_DOUT_PIN) == HIGH){
+//     occupancy_detected = 1;
+//     ws2812fx.setColor(255,0,0);
+//   }
+//   if (digitalRead(LD2410_DOUT_PIN) == LOW)
+//   {
+//     occupancy_detected = 0;
+//     ws2812fx.setColor(0,255,0);
+//   }
+//   cha_occupancy.value.uint8_value = occupancy_detected;
+//   homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
+// }
 
 void update_light(){
-  lux = 1;
+  if (lightMeter.measurementReady()) {
+    lux = lightMeter.readLightLevel();
+    light_active = true;
+  }
+  else{
+    light_active = false;
+  }
   cha_light.value.float_value = lux;
   homekit_characteristic_notify(&cha_light, cha_light.value);
-  light_active = true;
+  
   cha_light_active.value.bool_value = light_active;
   homekit_characteristic_notify(&cha_light_active, cha_light_active.value);
 }
