@@ -33,7 +33,7 @@
 #define WIFI_CHECK_PERIOD 10000
 #define UPDATE_PERIOD 1000
 #define RESET_HK_CLICK 4   // used to reset homekit pairing information if button is clicked 4times after startup within 10s
-
+#define MOTION_PIN 13
 #define LD2410_DOUT_PIN 12
 
 int reset_click_number = 0;
@@ -45,8 +45,10 @@ unsigned long time_now3 = 0;
 bool first_start_loop = true;
 volatile bool press_rotation_flag = false;   
 uint8_t last_motion_stat = 0;
+uint8_t last_still_motion_stat = 0;
 uint8_t occupancy_detected = 0;
-// bool motion_detected = false;
+bool motion_detected = false;
+
 bool light_active = true;
 float lux = 0.01 ;   // min 0.0001 max 100000
 WiFiManager wm;
@@ -63,6 +65,7 @@ extern "C" homekit_characteristic_t cha_light;
 extern "C" homekit_characteristic_t device_name;
 extern "C" homekit_characteristic_t cha_light_active;
 extern "C" homekit_characteristic_t cha_switch_on;
+extern "C" homekit_characteristic_t cha_motion;
 static uint32_t next_heap_millis = 0;
 
 //Called when the switch value is changed by iOS Home APP
@@ -183,18 +186,31 @@ void my_homekit_loop() {
 }
 
 void motion_loop(){
-  uint8_t motion_stat = digitalRead(LD2410_DOUT_PIN);
-  if(motion_stat != last_motion_stat){
+  uint8_t still_motion_stat = digitalRead(LD2410_DOUT_PIN);
+  if(still_motion_stat != last_still_motion_stat){
+    last_still_motion_stat = still_motion_stat;
+    if(still_motion_stat == HIGH){
+      ws2812fx.setColor(255,0,0);
+    }
+    if(still_motion_stat == LOW){
+      ws2812fx.setColor(0,255,0);
+    }
+    occupancy_detected = still_motion_stat;
+    cha_occupancy.value.uint8_value = occupancy_detected;
+    homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
+  }
+  bool motion_stat = digitalRead(MOTION_PIN);
+  if(last_motion_stat != motion_stat){
     last_motion_stat = motion_stat;
     if(motion_stat == HIGH){
-      ws2812fx.setColor(255,0,0);
+      ws2812fx.setColor(0,0,255);
     }
     if(motion_stat == LOW){
       ws2812fx.setColor(0,255,0);
     }
-    occupancy_detected = motion_stat;
-    cha_occupancy.value.uint8_value = occupancy_detected;
-    homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
+    motion_detected = motion_stat;
+    cha_motion.value.bool_value = motion_detected;
+    homekit_characteristic_notify(&cha_motion, cha_motion.value);
   }
 }
 // void update_motion(){

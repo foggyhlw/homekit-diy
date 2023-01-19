@@ -13,7 +13,7 @@ void my_accessory_identify(homekit_value_t _value) {
 	printf("accessory identify\n");
 }
 
-// homekit_characteristic_t cha_motion = HOMEKIT_CHARACTERISTIC_(MOTION_DETECTED, false);
+homekit_characteristic_t cha_motion = HOMEKIT_CHARACTERISTIC_(MOTION_DETECTED, false);
 // //format bool, true means accessory is ready
 // homekit_characteristic_t cha_motion_active = HOMEKIT_CHARACTERISTIC_(STATUS_ACTIVE, true);
 
