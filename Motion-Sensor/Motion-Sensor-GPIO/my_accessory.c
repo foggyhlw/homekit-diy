@@ -59,11 +59,15 @@ homekit_accessory_t *accessories[] = {
             &cha_light_active,
 			NULL
 		}),
-      HOMEKIT_SERVICE(SWITCH, .primary=false, .characteristics=(homekit_characteristic_t*[]){
-      &cha_switch_on,
-      &cha_switch_name,
-      NULL
-    }),
+        HOMEKIT_SERVICE(SWITCH, .primary=false, .characteristics=(homekit_characteristic_t*[]){
+            &cha_switch_on,
+            &cha_switch_name,
+            NULL
+        }),
+        HOMEKIT_SERVICE(MOTION_SENSOR, .primary=false, .characteristics=(homekit_characteristic_t*[]){
+            &cha_motion,
+            NULL
+        }),
         NULL
     }),
     NULL
