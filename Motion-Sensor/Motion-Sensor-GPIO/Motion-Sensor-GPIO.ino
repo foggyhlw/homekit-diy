@@ -187,9 +187,10 @@ void my_homekit_loop() {
 
 void motion_loop(){
   uint8_t still_motion_stat = digitalRead(LD2410_DOUT_PIN);
+  bool motion_stat = digitalRead(MOTION_PIN);
   if(still_motion_stat != last_still_motion_stat){
     last_still_motion_stat = still_motion_stat;
-    if(still_motion_stat == HIGH){
+    if(still_motion_stat == HIGH && motion_stat != true){
       ws2812fx.setColor(255,0,0);
     }
     if(still_motion_stat == LOW){
@@ -199,7 +200,7 @@ void motion_loop(){
     cha_occupancy.value.uint8_value = occupancy_detected;
     homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
   }
-  bool motion_stat = digitalRead(MOTION_PIN);
+
   if(last_motion_stat != motion_stat){
     last_motion_stat = motion_stat;
     if(motion_stat == HIGH){
