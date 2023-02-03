@@ -193,7 +193,7 @@ void motion_loop(){
     if(still_motion_stat == HIGH && motion_stat != true){
       ws2812fx.setColor(255,0,0);
     }
-    if(still_motion_stat == LOW){
+    if(still_motion_stat == LOW && motion_stat == LOW){
       ws2812fx.setColor(0,255,0);
     }
     occupancy_detected = still_motion_stat;
@@ -206,8 +206,11 @@ void motion_loop(){
     if(motion_stat == HIGH){
       ws2812fx.setColor(0,0,255);
     }
-    if(motion_stat == LOW){
+    if(motion_stat == LOW && still_motion_stat == LOW){
       ws2812fx.setColor(0,255,0);
+    }
+    if(motion_stat == LOW && still_motion_stat == HIGH){
+      ws2812fx.setColor(255,0,0);
     }
     motion_detected = motion_stat;
     cha_motion.value.bool_value = motion_detected;
