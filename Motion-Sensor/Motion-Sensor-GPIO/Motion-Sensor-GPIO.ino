@@ -31,7 +31,7 @@
 #define BUILT_IN_LED 2
 #define RESET_HK_PERIOD 10000
 #define WIFI_CHECK_PERIOD 10000
-#define UPDATE_PERIOD 1000
+#define UPDATE_PERIOD 5000
 #define RESET_HK_CLICK 4   // used to reset homekit pairing information if button is clicked 4times after startup within 10s
 #define MOTION_PIN 13
 #define LD2410_DOUT_PIN 12
@@ -42,6 +42,7 @@ unsigned long time_now = 0;
 unsigned long time_now1 = 0;
 unsigned long time_now2 = 0;
 unsigned long time_now3 = 0;
+unsigned long time_now4 = 0;
 bool first_start_loop = true;
 volatile bool press_rotation_flag = false;   
 uint8_t last_motion_stat = 0;
@@ -149,6 +150,9 @@ void loop() {
     my_homekit_loop();
     time_now2 = millis();
     ws2812fx.service();
+  }
+  if(millis() > time_now4 + 100){
+    time_now4 = millis();
     motion_loop();
   }
 	// delay(10);
